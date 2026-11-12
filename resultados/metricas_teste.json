@@ -1,0 +1,12 @@
+{
+  "metricas": {
+    "f1_macro": 0.933,
+    "accuracy": 0.9408,
+    "n_test": 3244
+  },
+  "tamanhos": {
+    "train": 25946,
+    "validation": 3243,
+    "test": 3244
+  }
+}

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentimento de Avaliações</title>
+  <meta name="description" content="Demo de um modelo BERTimbau que classifica avaliações de compra em português como positivas ou negativas, rodando direto no navegador.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f5f3;
+      --card: #ffffff;
+      --text: #1f1d1a;
+      --muted: #6b665f;
+      --border: #e4e0da;
+      --accent: #d9480f;
+      --accent-soft: #fdeee6;
+      --pos: #2f9e44;
+      --pos-soft: #e6f4e8;
+      --neg: #e03131;
+      --neg-soft: #fbe9e9;
+      --track: #efece7;
+      --chip: #f3f1ed;
+      --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #141311;
+        --card: #1d1b19;
+        --text: #f1eee9;
+        --muted: #a39d94;
+        --border: #34302b;
+        --accent: #ff8a4c;
+        --accent-soft: #3a2418;
+        --pos: #69db7c;
+        --pos-soft: #1f3324;
+        --neg: #ff8787;
+        --neg-soft: #3b1f1f;
+        --track: #2a2724;
+        --chip: #26231f;
+        --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #141311; --card: #1d1b19; --text: #f1eee9; --muted: #a39d94; --border: #34302b;
+      --accent: #ff8a4c; --accent-soft: #3a2418; --pos: #69db7c; --pos-soft: #1f3324;
+      --neg: #ff8787; --neg-soft: #3b1f1f; --track: #2a2724; --chip: #26231f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      line-height: 1.5; -webkit-font-smoothing: antialiased;
+    }
+    main { max-width: 680px; margin: 0 auto; padding: 40px 16px 48px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12.5px; font-weight: 600; color: var(--accent);
+      background: var(--accent-soft); padding: 4px 10px; border-radius: 999px;
+    }
+    h1 { font-size: clamp(26px, 5vw, 34px); line-height: 1.15; margin: 14px 0 8px; letter-spacing: -0.02em; }
+    .lead { color: var(--muted); margin: 0 0 24px; font-size: 15.5px; }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 20px; box-shadow: var(--shadow);
+    }
+    label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 8px; }
+    textarea {
+      width: 100%; min-height: 104px; resize: vertical; font: inherit; font-size: 15.5px;
+      color: var(--text); background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; outline: none;
+    }
+    textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+    .examples span { font-size: 12.5px; color: var(--muted); width: 100%; }
+    .chip {
+      font: inherit; font-size: 13px; color: var(--text); background: var(--chip);
+      border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+      text-align: left;
+    }
+    .chip:hover { border-color: var(--accent); }
+    .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    button.primary {
+      font: inherit; font-weight: 600; font-size: 15px; color: #fff; background: var(--accent);
+      border: 0; border-radius: 12px; padding: 11px 22px; cursor: pointer;
+    }
+    button.primary:disabled { opacity: .5; cursor: not-allowed; }
+    .status { font-size: 13px; color: var(--muted); }
+    .progress { height: 4px; background: var(--track); border-radius: 4px; overflow: hidden; margin-top: 14px; }
+    .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+    .result { margin-top: 20px; display: none; }
+    .result.show { display: block; }
+    .verdict {
+      display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; border-radius: 12px;
+      margin-bottom: 14px;
+    }
+    .verdict.pos { background: var(--pos-soft); }
+    .verdict.neg { background: var(--neg-soft); }
+    .verdict strong { font-size: 22px; letter-spacing: -0.01em; }
+    .verdict.pos strong { color: var(--pos); }
+    .verdict.neg strong { color: var(--neg); }
+    .verdict span { color: var(--muted); font-size: 14px; }
+    .bar-row { display: grid; grid-template-columns: 78px 1fr 52px; align-items: center; gap: 10px; margin: 8px 0; font-size: 14px; }
+    .bar { height: 10px; background: var(--track); border-radius: 6px; overflow: hidden; }
+    .bar > div { height: 100%; border-radius: 6px; transition: width .4s ease; }
+    .bar.pos > div { background: var(--pos); }
+    .bar.neg > div { background: var(--neg); }
+    .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+    .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+    .fact { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+    .fact b { display: block; font-size: 19px; }
+    .fact small { color: var(--muted); font-size: 12.5px; }
+    .note { margin-top: 20px; font-size: 13.5px; color: var(--muted); }
+    footer { margin-top: 28px; font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+    footer a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    footer a:hover { text-decoration: underline; }
+    @media (max-width: 520px) {
+      .facts { grid-template-columns: 1fr; }
+      main { padding-top: 28px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <span class="badge">● Roda no seu navegador</span>
+  <h1>Sentimento de avaliações em português</h1>
+  <p class="lead">Escreva uma avaliação de compra e o modelo diz se ela é positiva ou negativa. É um BERTimbau ajustado com 32 mil avaliações reais de e-commerce brasileiro.</p>
+
+  <section class="card">
+    <label for="texto">Avaliação</label>
+    <textarea id="texto" placeholder="Ex.: chegou fria e atrasada"></textarea>
+
+    <div class="examples">
+      <span>Ou teste um exemplo:</span>
+      <button class="chip" type="button">Entrega rápida, comida quentinha e bem embalada!</button>
+      <button class="chip" type="button">O pedido veio errado e chegou frio.</button>
+      <button class="chip" type="button">Produto bom, mas a entrega atrasou dois dias.</button>
+      <button class="chip" type="button">Parabéns pela demora.</button>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="analisar" type="button" disabled>Analisar</button>
+      <span class="status" id="status">Carregando o modelo…</span>
+    </div>
+    <div class="progress" id="progress"><div></div></div>
+
+    <div class="result" id="resultado">
+      <div class="verdict" id="veredito"><strong></strong><span></span></div>
+      <div class="bar-row"><span>Positivo</span><div class="bar pos"><div id="bar-pos"></div></div><span class="pct" id="pct-pos"></span></div>
+      <div class="bar-row"><span>Negativo</span><div class="bar neg"><div id="bar-neg"></div></div><span class="pct" id="pct-neg"></span></div>
+    </div>
+  </section>
+
+  <div class="facts">
+    <div class="fact"><b>0,933</b><small>F1 macro no teste</small></div>
+    <div class="fact"><b>94,1%</b><small>de acurácia</small></div>
+    <div class="fact"><b>3.244</b><small>avaliações de teste</small></div>
+  </div>
+
+  <p class="note">Na primeira visita, o navegador baixa o modelo (cerca de 110 MB). Depois ele fica guardado e carrega rápido. Nenhum texto é enviado para servidor. Limitações conhecidas: textos mistos, erros de digitação e referências que exigem conhecimento de mundo.</p>
+
+  <footer>
+    <a href="https://huggingface.co/suellenlima/bertimbau-sentimento-reviews-ptbr" target="_blank" rel="noopener">Modelo no Hugging Face</a>
+    <a href="https://github.com/SuellenMoreiraLima/sentimento-reviews-ptbr" target="_blank" rel="noopener">Código no GitHub</a>
+    <span>Feito por Suellen Moreira Lima</span>
+  </footer>
+</main>
+
+<script>
+  // Interface (sem dependências): preenche exemplos e mostra o resultado.
+  const $ = (id) => document.getElementById(id);
+  const fmt = (x) => (x * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+
+  document.querySelectorAll(".chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      $("texto").value = chip.textContent;
+      if (!$("analisar").disabled) $("analisar").click();
+    });
+  });
+
+  window.mostrarStatus = (texto, fracao) => {
+    $("status").textContent = texto;
+    const barra = $("progress");
+    barra.style.display = fracao === null ? "none" : "block";
+    if (fracao !== null) barra.firstElementChild.style.width = Math.round(fracao * 100) + "%";
+  };
+
+  window.mostrarResultado = (scores) => {
+    const pos = scores.positivo ?? 0, neg = scores.negativo ?? 0;
+    const ehPositivo = pos >= neg;
+    const v = $("veredito");
+    v.className = "verdict " + (ehPositivo ? "pos" : "neg");
+    v.querySelector("strong").textContent = ehPositivo ? "Positivo" : "Negativo";
+    v.querySelector("span").textContent = "com " + fmt(Math.max(pos, neg)) + " de confiança";
+    $("bar-pos").style.width = (pos * 100) + "%";
+    $("bar-neg").style.width = (neg * 100) + "%";
+    $("pct-pos").textContent = fmt(pos);
+    $("pct-neg").textContent = fmt(neg);
+    $("resultado").classList.add("show");
+  };
+</script>
+
+<script type="module">
+  // Modelo: carrega o BERTimbau (versão ONNX quantizada) e classifica no navegador.
+  import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1";
+
+  const MODEL_ID = "suellenlima/bertimbau-sentimento-reviews-ptbr";
+  // Versão do modelo escolhida no notebook 03: "q8" ou "uint8" (~110 MB), "fp16" (~220 MB) ou "fp32" (~436 MB)
+  const DTYPE = "q8";
+  const arquivos = {};
+
+  try {
+    const classificador = await pipeline("text-classification", MODEL_ID, {
+      dtype: DTYPE,
+      progress_callback: (p) => {
+        if (p.status === "progress" && p.total) {
+          arquivos[p.file] = [p.loaded, p.total];
+          const [feito, total] = Object.values(arquivos).reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);
+          mostrarStatus("Baixando o modelo… " + Math.round((feito / total) * 100) + "%", feito / total);
+        }
+      },
+    });
+
+    mostrarStatus("Modelo pronto.", null);
+    const botao = document.getElementById("analisar");
+    botao.disabled = false;
+
+    botao.addEventListener("click", async () => {
+      const texto = document.getElementById("texto").value.trim();
+      if (!texto) return;
+      botao.disabled = true;
+      mostrarStatus("Analisando…", null);
+      const saida = await classificador(texto, { top_k: null });
+      const scores = Object.fromEntries(saida.map((s) => [s.label, s.score]));
+      mostrarResultado(scores);
+      mostrarStatus("Modelo pronto.", null);
+      botao.disabled = false;
+    });
+  } catch (erro) {
+    console.error(erro);
+    mostrarStatus("Não foi possível carregar o modelo. Recarregue a página.", null);
+  }
+</script>
+</body>
+</html>
