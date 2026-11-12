@@ -1,0 +1,18 @@
+# Checkpoints e modelos (ficam no Hugging Face Hub, não no Git)
+checkpoints/
+*.safetensors
+*.bin
+
+# Dados brutos (baixados do Kaggle pelo notebook)
+data/
+*.csv
+!resultados/erros_teste.csv
+
+# Segredos
+.env
+hf_token.txt
+
+# Python e notebooks
+__pycache__/
+.ipynb_checkpoints/
+.venv/
